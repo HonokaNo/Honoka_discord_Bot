@@ -10,6 +10,7 @@ from datetime import datetime
 import random
 import os
 import sys
+import urllib.parse
 import uuid
 
 client = commands.Bot(command_prefix='*', help_command=None)
@@ -35,49 +36,15 @@ async def hello(channel):
 	await channel.send('Hello!')
 	await channel.send('Hello2!')
 
-def encode_url(arg):
-	v = arg
-	# %はURLにのっとって%25変換
-	v = v.replace("%", "%25")
-	# スペースはURLにのっとって%20変換
-	v = v.replace("\"", "%22")
-	v = v.replace("#", "%23")
-	v = v.replace(" ", "%20")
-	v = v.replace("&", "%26")
-	v = v.replace("<", "%3C")
-	v = v.replace(">", "%3E")
-	v = v.replace("`", "%60")
-	v = v.replace("{", "%7B")
-	v = v.replace("}", "%7D")
-	v = v.splitlines()[0]
-
-	return v
-
-def utf_encode(arg):
-	ret = ""
-	str = ""
-	v = arg
-	listv = list(arg)
-	for va in listv:
-		if va < '~':
-			ret += va
-		else:
-			str = va.encode("sjis").hex()
-			bytelists = [(i + j) for (i, j) in zip(str[::2], str[1::2])]
-			for b in bytelists:
-				ret += "%"
-				ret += b
-			pass
-
-	return ret
-
 @client.command()
 async def karaoke(channel, *, arg):
-	url = encode_url(arg)
-	await channel.send('https://www.joysound.com/web/search/cross?match=1&keyword=' + url)
-	await channel.send('https://www.clubdam.com/karaokesearch/?keyword=' + url)
-	await channel.send('http://karatetsu.jp/sp/mlist_smode=search&keyword=' + utf_encode(url) + '.html')
-	await channel.send('http://karatetsu.jp/sp/alist_smode=search&keyword=' + utf_encode(url) + '.html')
+	# urllib.parse.quoteを使うと簡単にエンコーディングできる
+	utf8_url = urllib.parse.quote(arg, encoding='utf-8')
+	sjis_url = urllib.parse.quote(arg, encoding='shift-jis')
+	await channel.send('https://www.joysound.com/web/search/cross?match=1&keyword=' + utf8_url)
+	await channel.send('https://www.clubdam.com/karaokesearch/?keyword=' + utf8_url)
+	await channel.send('http://karatetsu.jp/sp/mlist_smode=search&keyword=' + sjis_url + '.html')
+	await channel.send('http://karatetsu.jp/sp/alist_smode=search&keyword=' + sjis_url + '.html')
 
 @karaoke.error
 async def karaoke_error(channel, error):
@@ -200,17 +167,14 @@ async def setchannel(channel, arg):
 
 @client.command()
 async def hayakuchi(channel):
-	r = random.randint(0, 2)
+	hayakuchi_repertory = ["隣の客はよく柿食う客だ", "東京特許許可局", "赤巻紙青巻紙黄巻紙"]
+	r = random.randint(0, len(hayakuchi_repertory))
 	msg = ""
 
 	await channel.send("早口言葉いうね!")
 
-	if r == 0:
-		msg = "隣の客はよく柿食う客だ"
-	elif r == 1:
-		msg = "東京特許許可局"
-	elif r == 2:
-		msg = "赤巻紙青巻紙黄巻紙"
+	# リストにレパートリーを格納してランダムに生成したインデックスにアクセス
+	msg = hayakuchi_repertory[r]
 	await channel.send(msg)
 
 	creat_WAV(msg, "normal", "1.5")
@@ -273,25 +237,20 @@ async def on_message(message):
 
 		msg = message.content.replace("\n", " ")
 		if "悲し" in message.content or "しょぼん" in message.content or "´・ω・" in message.content:
-			if whomsg:
-				msg = name + " さん " + msg
-			creat_WAV(msg, "sad", "1.0")
+			feeling = "sad"
 		elif "楽し" in message.content or "わーい" in message.content:
-			if whomsg:
-				msg = name + " さん " + msg
-			creat_WAV(msg, "happy", "1.0")
+			feeling = "happy"
 		elif "怒" in message.content or "ぷんぷん" in message.content or "プンプン" in message.content:
-			if whomsg:
-				msg = name + " さん " + msg
-			creat_WAV(msg, "angry", "1.0")
+			feeling = "angry"
 		elif "恥ず" in message.content or "はずかしい" in message.content:
-			if whomsg:
-				msg = name + " さん " + msg
-			creat_WAV(msg, "bashful", "1.0")
+			feeling = "bashful"
 		else:
-			if whomsg:
-				msg = name + " さん " + msg
-			creat_WAV(msg, "normal", "1.0")
+			feeling = "normal"
+
+		if whomsg:
+			msg = name + " さん " + msg
+		# create_WAV部分は共通なのでまとめる
+		creat_WAV(msg, feeling, "1.0")
 		source = discord.FFmpegPCMAudio("output.wav")
 		message.guild.voice_client.play(source)
 	else:
