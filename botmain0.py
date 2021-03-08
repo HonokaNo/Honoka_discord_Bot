@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from discord.ext import tasks
 from discord.ext.commands import errors
 import time
 import threading
@@ -10,6 +11,8 @@ from datetime import datetime
 import random
 import os
 import sys
+import urllib.parse
+import uuid
 
 client = commands.Bot(command_prefix='*', help_command=None)
 voice_client = None
@@ -25,58 +28,20 @@ uses = [False, False, False]
 whomsg = False
 nowChannel = None
 
-#if not discord.opus.is_loaded():
-#	print("client opus is_loaded -------------------------------------")
-#	discord.opus.load_opus("heroku-buildpack-libopus")
-
 @client.command()
 async def hello(channel):
 	await channel.send('Hello!')
 	await channel.send('Hello2!')
 
-def encode_url(arg):
-	v = arg
-	# %はURLにのっとって%25変換
-	v = v.replace("%", "%25")
-	# スペースはURLにのっとって%20変換
-	v = v.replace("\"", "%22")
-	v = v.replace("#", "%23")
-	v = v.replace(" ", "%20")
-	v = v.replace("&", "%26")
-	v = v.replace("<", "%3C")
-	v = v.replace(">", "%3E")
-	v = v.replace("`", "%60")
-	v = v.replace("{", "%7B")
-	v = v.replace("}", "%7D")
-	v = v.splitlines()[0]
-
-	return v
-
-def utf_encode(arg):
-	ret = ""
-	str = ""
-	v = arg
-	listv = list(arg)
-	for va in listv:
-		if va < '~':
-			ret += va
-		else:
-			str = va.encode("sjis").hex()
-			bytelists = [(i + j) for (i, j) in zip(str[::2], str[1::2])]
-			for b in bytelists:
-				ret += "%"
-				ret += b
-			pass
-
-	return ret
-
 @client.command()
 async def karaoke(channel, *, arg):
-	url = encode_url(arg)
-	await channel.send('https://www.joysound.com/web/search/cross?match=1&keyword=' + url)
-	await channel.send('https://www.clubdam.com/karaokesearch/?keyword=' + url)
-	await channel.send('http://karatetsu.jp/sp/mlist_smode=search&keyword=' + utf_encode(url) + '.html')
-	await channel.send('http://karatetsu.jp/sp/alist_smode=search&keyword=' + utf_encode(url) + '.html')
+	# urllib.parse.quoteを使うと簡単にエンコーディングできる
+	utf8_url = urllib.parse.quote(arg, encoding='utf-8')
+	sjis_url = urllib.parse.quote(arg, encoding='shift-jis')
+	await channel.send('https://www.joysound.com/web/search/cross?match=1&keyword=' + utf8_url)
+	await channel.send('https://www.clubdam.com/karaokesearch/?keyword=' + utf8_url)
+	await channel.send('http://karatetsu.jp/sp/mlist_smode=search&keyword=' + sjis_url + '.html')
+	await channel.send('http://karatetsu.jp/sp/alist_smode=search&keyword=' + sjis_url + '.html')
 
 @karaoke.error
 async def karaoke_error(channel, error):
@@ -104,21 +69,21 @@ async def movie(channel):
 
 @client.command()
 async def help(channel):
-	await channel.send("Python Bot Help")
-	await channel.send("*karaoke value      曲/歌手名を検索します")
-	await channel.send("example:*karaoke ABC    ABCという曲/歌手で検索")
-	await channel.send("*alerm time [msg] [ismention(True/False)]    time秒後にアラームを発信します")
-	await channel.send("*alerm 10    10秒後にアラームを発信")
-	await channel.send("*alerm 10 \"Success! ful\"    10秒後にSuccess! fulとアラームを発信")
-	await channel.send("*alerm 10 Success! True    10秒後にSuccess!とメンション付きでアラームを発信")
-	await channel.send("*alermのメッセージは1単語しかできないので注意")
-	await channel.send("*join    ボイスチャンネルに参加させます。チャット欄のメッセージ/DMのメッセージを読み上げます")
-	await channel.send("*leave    ボイスチャンネルから抜けまーす")
-	await channel.send("*ping    テキスト送信のpingを計測します")
-	await channel.send("*warikan price num    割り勘のときの金額を計算します")
-	await channel.send("*readname True/False    メッセージ読み上げ時に名前を読み上げます")
-	await channel.send("*setchannel True/False    メッセージを読み上げるチャンネルを固定します")
-	await channel.send("*hayakuchi    早口言葉に挑戦します!(毎回成功しちゃうけどね☆")
+	await channel.send("Python Bot Help\n \
+	\*karaoke value      曲/歌手名を検索します\n \
+	\*example:\*karaoke ABC    ABCという曲/歌手で検索\n \
+	\*alerm time [msg] [ismention(True/False)]    time秒後にアラームを発信します\n \
+	\*alerm 10    10秒後にアラームを発信\n \
+	\*alerm 10 \"Success! ful\"    10秒後にSuccess! fulとアラームを発信\n \
+	\*alerm 10 Success! True    10秒後にSuccess!とメンション付きでアラームを発信 \
+	\*alermのメッセージは1単語しかできないので注意 \
+	\*join    ボイスチャンネルに参加させます。チャット欄のメッセージ/DMのメッセージを読み上げます \
+	\*leave    ボイスチャンネルから抜けまーす \
+	\*ping    テキスト送信のpingを計測します \
+	\*warikan price num    割り勘のときの金額を計算します \
+	\*readname True/False    メッセージ読み上げ時に名前を読み上げます \
+	\*setchannel True/False    メッセージを読み上げるチャンネルを固定します \
+	\*hayakuchi    早口言葉に挑戦します!(毎回成功しちゃうけどね☆")
 
 @client.command()
 async def alerm(channel, *args):
@@ -158,13 +123,17 @@ async def leave(ctx):
 
 @client.command()
 async def ping(channel):
-	current = datetime.utcnow()
+	current = time.time()
 	await channel.send("pinging...")
-	current0 = datetime.utcnow()
+	current0 = time.time()
 
 	pinged = current0 - current
 	await channel.send("ping success!")
-	await channel.send("sec:" + str(pinged.seconds) + " microsec:" + str(pinged.microseconds))
+
+	# datetimeオブジェクトのmicrosecondsはミリ秒部分を指すのでそのまま使えません
+	# time.time()を使うと簡単
+
+	await channel.send(f'sec: {pinged:.2f} microsec: {pinged*1000:.2f}')
 
 @client.command()
 async def warikan(channel, price, num):
@@ -195,12 +164,15 @@ async def setchannel(channel, arg):
 
 @client.command()
 async def hayakuchi(channel):
-	msgs = ["隣の客はよく柿食う客だ", "東京特許許可局", "赤巻紙青巻紙黄巻紙"]
-	r = random.randint(0, len(msgs) - 1)
+	hayakuchi_repertory = ["隣の客はよく柿食う客だ", "東京特許許可局", "赤巻紙青巻紙黄巻紙"]
+	r = random.randint(0, len(hayakuchi_repertory) - 1)
+	msg = ""
 
 	await channel.send("早口言葉いうね!")
 
-	await channel.send(msgs[r])
+	# リストにレパートリーを格納してランダムに生成したインデックスにアクセス
+	msg = hayakuchi_repertory[r]
+	await channel.send(msg)
 
 	creat_WAV(msg, "normal", "1.5")
 	source = discord.FFmpegPCMAudio("output.wav")
@@ -217,21 +189,19 @@ async def reload(channel):
 		os.execl(sys.executable, __file__)
 		exit(0)
 	else:
-		await channel.send("何をやろうとしているのかね?")
-		await channel.send(f"{channel.message.author.mention}さん?")
+		await channel.send(f"何をやろうとしているのかね?\n{channel.message.author.mention}さん?")
 
 def creat_WAV(input, voice_type, speed):
-	with open("input.txt", "w", encoding="sjis") as file:
+	tmptxt = f"input.{uuid.uuid4()}.txt"
+	with open(tmptxt, "w", encoding="sjis") as file:
 		file.write(input)
-
-	command = "C:/open_jtalk/bin/open_jtalk -m {m} -x {x} -r {r} -ow output.wav input.txt"
 
 	x = "C:/open_jtalk/bin/dic"
 	m = "C:/open_jtalk/bin/mei/mei_" + voice_type + ".htsvoice"
 	r = speed
 
-	args = {"x":x, "m":m, "r":r}
-	cmd = command.format(**args)
+	# f-string使えばformat()使わなくてもOK
+	cmd = f"C:/open_jtalk/bin/open_jtalk -m {m} -x {x} -r {r} -ow output.wav {tmptxt}"
 
 	subprocess.run(cmd)
 
@@ -258,25 +228,21 @@ async def on_message(message):
 
 		msg = message.content.replace("\n", " ")
 		if "悲し" in message.content or "しょぼん" in message.content or "´・ω・" in message.content:
-			if whomsg:
-				msg = name + " さん " + msg
-			creat_WAV(msg, "sad", "1.0")
+			feeling = "sad"
 		elif "楽し" in message.content or "わーい" in message.content:
-			if whomsg:
-				msg = name + " さん " + msg
-			creat_WAV(msg, "happy", "1.0")
+			feeling = "happy"
 		elif "怒" in message.content or "ぷんぷん" in message.content or "プンプン" in message.content:
-			if whomsg:
-				msg = name + " さん " + msg
-			creat_WAV(msg, "angry", "1.0")
+			feeling = "angry"
 		elif "恥ず" in message.content or "はずかしい" in message.content:
-			if whomsg:
-				msg = name + " さん " + msg
-			creat_WAV(msg, "bashful", "1.0")
+			feeling = "bashful"
 		else:
-			if whomsg:
-				msg = name + " さん " + msg
-			creat_WAV(msg, "normal", "1.0")
+			feeling = "normal"
+
+		if whomsg:
+			msg = name + " さん " + msg
+
+		# create_WAV部分は共通なのでまとめる
+		creat_WAV(msg, feeling, "1.0")
 		source = discord.FFmpegPCMAudio("output.wav")
 		message.guild.voice_client.play(source)
 	else:
@@ -284,23 +250,24 @@ async def on_message(message):
 
 	await client.process_commands(message)
 
-def timer():
-	while True:
-		index = 0
-		for t in alerms:
-			alerms[index] -= 1
-			if alerms[index] == 0:
-				if mentions[index]:
-					client.loop.create_task(msgchannels[index].send(whomentions[index].mention + " " + msgs[index]))
-				else:
-					client.loop.create_task(msgchannels[index].send(msgs[index]))
-				del alerms[index]
-				del msgchannels[index]
-				del msgs[index]
-				del mentions[index]
-			index += 1
-		time.sleep(1)
+# discord.ext.tasks.loopを使うとより簡単にできます！
+@tasks.loop(seconds=1)
+async def timer():
+	index = 0
+	for t in alerms:
+		alerms[index] -= 1
+		if alerms[index] == 0:
+			if mentions[index]:
+				await msgchannels[index].send(whomentions[index].mention + " " + msgs[index])
+			else:
+				await msgchannels[index].send(msgs[index])
+			del alerms[index]
+			del msgchannels[index]
+			del msgs[index]
+			del mentions[index]
+		index += 1
 
-t1 = threading.Thread(target=timer)
-t1.setDaemon(True)
-t1.start()
+@client.event
+async def on_ready():
+	timer.start() # タイマー通知を開始
+	# 止めたいときは timer.stop()
