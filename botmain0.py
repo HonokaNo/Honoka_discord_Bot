@@ -75,14 +75,14 @@ async def help(channel):
 	\*alerm time [msg] [ismention(True/False)]    time秒後にアラームを発信します\n \
 	\*alerm 10    10秒後にアラームを発信\n \
 	\*alerm 10 \"Success! ful\"    10秒後にSuccess! fulとアラームを発信\n \
-	\*alerm 10 Success! True    10秒後にSuccess!とメンション付きでアラームを発信 \
-	\*alermのメッセージは1単語しかできないので注意 \
-	\*join    ボイスチャンネルに参加させます。チャット欄のメッセージ/DMのメッセージを読み上げます \
-	\*leave    ボイスチャンネルから抜けまーす \
-	\*ping    テキスト送信のpingを計測します \
-	\*warikan price num    割り勘のときの金額を計算します \
-	\*readname True/False    メッセージ読み上げ時に名前を読み上げます \
-	\*setchannel True/False    メッセージを読み上げるチャンネルを固定します \
+	\*alerm 10 Success! True    10秒後にSuccess!とメンション付きでアラームを発信\n \
+	\*alermのメッセージは1単語しかできないので注意\n \
+	\*join    ボイスチャンネルに参加させます。チャット欄のメッセージを読み上げます\n \
+	\*leave    ボイスチャンネルから抜けまーす\n \
+	\*ping    テキスト送信のpingを計測します\n \
+	\*warikan price num    割り勘のときの金額を計算します\n \
+	\*readname True/False    メッセージ読み上げ時に名前を読み上げます\n \
+	\*setchannel True/False    メッセージを読み上げるチャンネルを固定します\n \
 	\*hayakuchi    早口言葉に挑戦します!(毎回成功しちゃうけどね☆")
 
 @client.command()
