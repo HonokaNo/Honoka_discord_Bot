@@ -205,6 +205,8 @@ def creat_WAV(input, voice_type, speed):
 
 	subprocess.run(cmd)
 
+	os.remove(tmptxt)
+
 @client.event
 async def on_message(message):
 	global whomsg
