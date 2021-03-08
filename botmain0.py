@@ -11,6 +11,7 @@ import random
 import os
 import sys
 import urllib.parse
+import uuid
 
 client = commands.Bot(command_prefix='*', help_command=None)
 voice_client = None
@@ -71,21 +72,21 @@ async def movie(channel):
 
 @client.command()
 async def help(channel):
-	await channel.send("Python Bot Help")
-	await channel.send("*karaoke value      曲/歌手名を検索します")
-	await channel.send("example:*karaoke ABC    ABCという曲/歌手で検索")
-	await channel.send("*alerm time [msg] [ismention(True/False)]    time秒後にアラームを発信します")
-	await channel.send("*alerm 10    10秒後にアラームを発信")
-	await channel.send("*alerm 10 \"Success! ful\"    10秒後にSuccess! fulとアラームを発信")
-	await channel.send("*alerm 10 Success! True    10秒後にSuccess!とメンション付きでアラームを発信")
-	await channel.send("*alermのメッセージは1単語しかできないので注意")
-	await channel.send("*join    ボイスチャンネルに参加させます。チャット欄のメッセージ/DMのメッセージを読み上げます")
-	await channel.send("*leave    ボイスチャンネルから抜けまーす")
-	await channel.send("*ping    テキスト送信のpingを計測します")
-	await channel.send("*warikan price num    割り勘のときの金額を計算します")
-	await channel.send("*readname True/False    メッセージ読み上げ時に名前を読み上げます")
-	await channel.send("*setchannel True/False    メッセージを読み上げるチャンネルを固定します")
-	await channel.send("*hayakuchi    早口言葉に挑戦します!(毎回成功しちゃうけどね☆")
+	await channel.send("Python Bot Help \
+	\*karaoke value      曲/歌手名を検索します \
+	example:\*karaoke ABC    ABCという曲/歌手で検索 \
+	\*alerm time [msg] [ismention(True/False)]    time秒後にアラームを発信します \
+	\*alerm 10    10秒後にアラームを発信 \
+	\*alerm 10 \"Success! ful\"    10秒後にSuccess! fulとアラームを発信 \
+	\*alerm 10 Success! True    10秒後にSuccess!とメンション付きでアラームを発信 \
+	\*alermのメッセージは1単語しかできないので注意 \
+	\*join    ボイスチャンネルに参加させます。チャット欄のメッセージ/DMのメッセージを読み上げます \
+	\*leave    ボイスチャンネルから抜けまーす \
+	\*ping    テキスト送信のpingを計測します \
+	\*warikan price num    割り勘のときの金額を計算します \
+	\*readname True/False    メッセージ読み上げ時に名前を読み上げます \
+	\*setchannel True/False    メッセージを読み上げるチャンネルを固定します \
+	\*hayakuchi    早口言葉に挑戦します!(毎回成功しちゃうけどね☆")
 
 @client.command()
 async def alerm(channel, *args):
@@ -125,13 +126,17 @@ async def leave(ctx):
 
 @client.command()
 async def ping(channel):
-	current = datetime.utcnow()
+	current = time.time()
 	await channel.send("pinging...")
-	current0 = datetime.utcnow()
+	current0 = time.time()
 
 	pinged = current0 - current
 	await channel.send("ping success!")
-	await channel.send("sec:" + str(pinged.seconds) + " microsec:" + str(pinged.microseconds))
+
+	# datetimeオブジェクトのmicrosecondsはミリ秒部分を指すのでそのまま使えません
+	# time.time()を使うと簡単
+
+	await channel.send(f'sec: {pinged:.2f} microsec: {pinged*1000:.2f}')
 
 @client.command()
 async def warikan(channel, price, num):
@@ -187,23 +192,27 @@ async def reload(channel):
 		os.execl(sys.executable, __file__)
 		exit(0)
 	else:
-		await channel.send("何をやろうとしているのかね?")
-		await channel.send(f"{channel.message.author.mention}さん?")
+		await channel.send(f"何をやろうとしているのかね?\n{channel.message.author.mention}さん?")
 
 def creat_WAV(input, voice_type, speed):
-	with open("input.txt", "w", encoding="sjis") as file:
-		file.write(input)
 
-	command = "C:/open_jtalk/bin/open_jtalk -m {m} -x {x} -r {r} -ow output.wav input.txt"
+	# 重複しない一時ファイルを作らないといつかバグる
+
+	tmptxt = f"input.{uuid.uuid4()}.txt"
+	with open(tmptxt, "w", encoding="sjis") as file:
+		file.write(input)
 
 	x = "C:/open_jtalk/bin/dic"
 	m = "C:/open_jtalk/bin/mei/mei_" + voice_type + ".htsvoice"
 	r = speed
 
-	args = {"x":x, "m":m, "r":r}
-	cmd = command.format(**args)
+	# f-string使えばformat()使わなくてもOK
+	cmd = f"C:/open_jtalk/bin/open_jtalk -m {m} -x {x} -r {r} -ow output.wav {tmptxt}"
 
 	subprocess.run(cmd)
+
+	# 不要になったので削除
+	os.remove(tmptxt)
 
 @client.event
 async def on_message(message):
@@ -249,23 +258,26 @@ async def on_message(message):
 
 	await client.process_commands(message)
 
-def timer():
+# discord.ext.tasks.loopを使うとより簡単にできます！
+@discord.ext.tasks.loop(seconds=1)
+async def timer():
 	while True:
 		index = 0
 		for t in alerms:
 			alerms[index] -= 1
 			if alerms[index] == 0:
 				if mentions[index]:
-					client.loop.create_task(msgchannels[index].send(whomentions[index].mention + " " + msgs[index]))
+					await msgchannels[index].send(whomentions[index].mention + " " + msgs[index])
 				else:
-					client.loop.create_task(msgchannels[index].send(msgs[index]))
+					await msgchannels[index].send(msgs[index])
 				del alerms[index]
 				del msgchannels[index]
 				del msgs[index]
 				del mentions[index]
 			index += 1
-		time.sleep(1)
+		await asyncio.sleep(1)
 
-t1 = threading.Thread(target=timer)
-t1.setDaemon(True)
-t1.start()
+@client.event
+async def on_ready():
+	timer.start() # タイマー通知を開始
+				  # 止めたいときは timer.stop()
