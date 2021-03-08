@@ -195,18 +195,12 @@ async def setchannel(channel, arg):
 
 @client.command()
 async def hayakuchi(channel):
-	r = random.randint(0, 2)
-	msg = ""
+	msgs = ["隣の客はよく柿食う客だ", "東京特許許可局", "赤巻紙青巻紙黄巻紙"]
+	r = random.randint(0, len(msgs) - 1)
 
 	await channel.send("早口言葉いうね!")
 
-	if r == 0:
-		msg = "隣の客はよく柿食う客だ"
-	elif r == 1:
-		msg = "東京特許許可局"
-	elif r == 2:
-		msg = "赤巻紙青巻紙黄巻紙"
-	await channel.send(msg)
+	await channel.send(msgs[r])
 
 	creat_WAV(msg, "normal", "1.5")
 	source = discord.FFmpegPCMAudio("output.wav")
